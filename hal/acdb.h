@@ -38,6 +38,9 @@ typedef void (*acdb_deallocate_t)();
 typedef int  (*acdb_init_t)();
 typedef int  (*acdb_init_v2_t)(const char *, char *, int);
 typedef int  (*acdb_init_v3_t)(const char *, char *, struct listnode *);
+#ifdef HUAWEI_SOUND_PARAM_PATH
+typedef void (*acdb_set_param_path_t)(char *path);
+#endif
 typedef void (*acdb_send_audio_cal_t)(int, int, int , int);
 typedef void (*acdb_send_audio_cal_v3_t)(int, int, int, int, int);
 typedef void (*acdb_send_voice_cal_t)(int, int);
