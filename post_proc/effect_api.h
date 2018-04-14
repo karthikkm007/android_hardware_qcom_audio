@@ -30,14 +30,10 @@
 #ifndef OFFLOAD_EFFECT_API_H_
 #define OFFLOAD_EFFECT_API_H_
 
-#if __cplusplus
-extern "C" {
-#endif
-
 int offload_update_mixer_and_effects_ctl(int card, int device_id,
-                                         struct mixer **mixer,
-                                         struct mixer_ctl **ctl);
-void offload_close_mixer(struct mixer **mixer);
+                                         struct mixer *mixer,
+                                         struct mixer_ctl *ctl);
+void offload_close_mixer(struct mixer *mixer);
 
 
 #define OFFLOAD_SEND_PBE_ENABLE_FLAG      (1 << 0)
@@ -69,11 +65,8 @@ void offload_bassboost_set_strength(struct bass_boost_params *bassboost,
 void offload_bassboost_set_mode(struct bass_boost_params *bassboost,
                                 int mode);
 int offload_bassboost_send_params(struct mixer_ctl *ctl,
-                                  struct bass_boost_params *bassboost,
+                                  struct bass_boost_params bassboost,
                                   unsigned param_send_flags);
-int hw_acc_bassboost_send_params(int fd,
-                                 struct bass_boost_params *bassboost,
-                                 unsigned param_send_flags);
 
 #define OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG    (1 << 0)
 #define OFFLOAD_SEND_VIRTUALIZER_STRENGTH       \
@@ -94,11 +87,8 @@ void offload_virtualizer_set_out_type(struct virtualizer_params *virtualizer,
 void offload_virtualizer_set_gain_adjust(struct virtualizer_params *virtualizer,
                                          int gain_adjust);
 int offload_virtualizer_send_params(struct mixer_ctl *ctl,
-                                  struct virtualizer_params *virtualizer,
+                                  struct virtualizer_params virtualizer,
                                   unsigned param_send_flags);
-int hw_acc_virtualizer_send_params(int fd,
-                                   struct virtualizer_params *virtualizer,
-                                   unsigned param_send_flags);
 
 #define OFFLOAD_SEND_EQ_ENABLE_FLAG             (1 << 0)
 #define OFFLOAD_SEND_EQ_PRESET                  \
@@ -112,10 +102,8 @@ void offload_eq_set_preset(struct eq_params *eq, int preset);
 void offload_eq_set_bands_level(struct eq_params *eq, int num_bands,
                                 const uint16_t *band_freq_list,
                                 int *band_gain_list);
-int offload_eq_send_params(struct mixer_ctl *ctl, struct eq_params *eq,
+int offload_eq_send_params(struct mixer_ctl *ctl, struct eq_params eq,
                            unsigned param_send_flags);
-int hw_acc_eq_send_params(int fd, struct eq_params *eq,
-                          unsigned param_send_flags);
 
 #define OFFLOAD_SEND_REVERB_ENABLE_FLAG         (1 << 0)
 #define OFFLOAD_SEND_REVERB_MODE                \
@@ -172,49 +160,7 @@ void offload_reverb_set_delay(struct reverb_params *reverb, int delay);
 void offload_reverb_set_diffusion(struct reverb_params *reverb, int diffusion);
 void offload_reverb_set_density(struct reverb_params *reverb, int density);
 int offload_reverb_send_params(struct mixer_ctl *ctl,
-                               struct reverb_params *reverb,
+                               struct reverb_params reverb,
                                unsigned param_send_flags);
-int hw_acc_reverb_send_params(int fd,
-                              struct reverb_params *reverb,
-                              unsigned param_send_flags);
-
-#define OFFLOAD_SEND_SOFT_VOLUME_ENABLE_FLAG         (1 << 0)
-#define OFFLOAD_SEND_SOFT_VOLUME_GAIN_2CH             \
-                                          (OFFLOAD_SEND_SOFT_VOLUME_ENABLE_FLAG << 1)
-#define OFFLOAD_SEND_SOFT_VOLUME_GAIN_MASTER          \
-                                          (OFFLOAD_SEND_SOFT_VOLUME_GAIN_2CH << 1)
-void offload_soft_volume_set_enable(struct soft_volume_params *vol,
-                                    bool enable);
-void offload_soft_volume_set_gain_master(struct soft_volume_params *vol,
-                                         int gain);
-void offload_soft_volume_set_gain_2ch(struct soft_volume_params *vol,
-                                      int l_gain, int r_gain);
-int offload_soft_volume_send_params(struct mixer_ctl *ctl,
-                                    struct soft_volume_params vol,
-                                    unsigned param_send_flags);
-
-#define OFFLOAD_SEND_TRANSITION_SOFT_VOLUME_ENABLE_FLAG         (1 << 0)
-#define OFFLOAD_SEND_TRANSITION_SOFT_VOLUME_GAIN_2CH             \
-                                  (OFFLOAD_SEND_TRANSITION_SOFT_VOLUME_ENABLE_FLAG << 1)
-#define OFFLOAD_SEND_TRANSITION_SOFT_VOLUME_GAIN_MASTER          \
-                                  (OFFLOAD_SEND_TRANSITION_SOFT_VOLUME_GAIN_2CH << 1)
-void offload_transition_soft_volume_set_enable(struct soft_volume_params *vol,
-                                               bool enable);
-void offload_transition_soft_volume_set_gain_master(struct soft_volume_params *vol,
-                                                    int gain);
-void offload_transition_soft_volume_set_gain_2ch(struct soft_volume_params *vol,
-                                                 int l_gain, int r_gain);
-int offload_transition_soft_volume_send_params(struct mixer_ctl *ctl,
-                                               struct soft_volume_params vol,
-                                               unsigned param_send_flags);
-
-#define OFFLOAD_SEND_HPX_STATE_ON       (1 << 0)
-#define OFFLOAD_SEND_HPX_STATE_OFF      (OFFLOAD_SEND_HPX_STATE_ON << 1)
-int offload_hpx_send_params(struct mixer_ctl *ctl, unsigned param_send_flags);
-int hw_acc_hpx_send_params(int fd, unsigned param_send_flags);
-
-#if __cplusplus
-} //extern "C"
-#endif
 
 #endif /*OFFLOAD_EFFECT_API_H_*/

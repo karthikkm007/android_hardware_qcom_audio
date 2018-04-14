@@ -31,7 +31,6 @@ typedef struct virtualizer_context_s {
 
     // Offload vars
     struct mixer_ctl *ctl;
-    int hw_acc_fd;
     bool temp_disabled;
     audio_devices_t forced_device;
     audio_devices_t device;
@@ -45,8 +44,6 @@ int virtualizer_set_parameter(effect_context_t *context, effect_param_t *p,
                             uint32_t size);
 
 int virtualizer_set_device(effect_context_t *context,  uint32_t device);
-
-int virtualizer_set_mode(effect_context_t *context,  int32_t hw_acc_fd);
 
 int virtualizer_reset(effect_context_t *context);
 

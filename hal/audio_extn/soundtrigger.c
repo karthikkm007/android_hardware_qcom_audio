@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,7 +30,6 @@
 /* #define LOG_NDEBUG 0 */
 #define LOG_NDDEBUG 0
 
-#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -65,7 +64,7 @@ get_sound_trigger_info(int capture_handle)
 {
     struct sound_trigger_info  *st_ses_info = NULL;
     struct listnode *node;
-    ALOGV("%s: list empty %d capture_handle %d", __func__,
+    ALOGD("%s: list %d capture_handle %d", __func__,
            list_empty(&st_dev->st_ses_list), capture_handle);
     list_for_each(node, &st_dev->st_ses_list) {
         st_ses_info = node_to_item(node, struct sound_trigger_info , list);
@@ -73,15 +72,6 @@ get_sound_trigger_info(int capture_handle)
             return st_ses_info;
     }
     return NULL;
-}
-
-static void stdev_snd_mon_cb(void * stream __unused, struct str_parms * parms)
-{
-    if (!parms)
-        return;
-
-    audio_extn_sound_trigger_set_parameters(NULL, parms);
-    return;
 }
 
 int audio_hw_call_back(sound_trigger_event_type_t event,
@@ -138,51 +128,12 @@ int audio_hw_call_back(sound_trigger_event_type_t event,
     return status;
 }
 
-int audio_extn_sound_trigger_read(struct stream_in *in, void *buffer,
-                       size_t bytes)
-{
-    int ret = -1;
-    struct sound_trigger_info  *st_info = NULL;
-    audio_event_info_t event;
-
-    if (!st_dev)
-       return ret;
-
-    if (!in->is_st_session_active) {
-        ALOGE(" %s: Sound trigger is not active", __func__);
-        goto exit;
-    }
-    if(in->standby)
-        in->standby = false;
-
-    pthread_mutex_lock(&st_dev->lock);
-    st_info = get_sound_trigger_info(in->capture_handle);
-    pthread_mutex_unlock(&st_dev->lock);
-    if (st_info) {
-        event.u.aud_info.ses_info = &st_info->st_ses;
-        event.u.aud_info.buf = buffer;
-        event.u.aud_info.num_bytes = bytes;
-        ret = st_dev->st_callback(AUDIO_EVENT_READ_SAMPLES, &event);
-    }
-
-exit:
-    if (ret) {
-        if (-ENETRESET == ret)
-            in->is_st_session_active = false;
-        memset(buffer, 0, bytes);
-        ALOGV("%s: read failed status %d - sleep", __func__, ret);
-        usleep((bytes * 1000000) / (audio_stream_in_frame_size((struct audio_stream_in *)in) *
-                                   in->config.rate));
-    }
-    return ret;
-}
-
 void audio_extn_sound_trigger_stop_lab(struct stream_in *in)
 {
     struct sound_trigger_info  *st_ses_info = NULL;
     audio_event_info_t event;
 
-    if (!st_dev || !in || !in->is_st_session_active)
+    if (!st_dev || !in)
        return;
 
     pthread_mutex_lock(&st_dev->lock);
@@ -192,7 +143,6 @@ void audio_extn_sound_trigger_stop_lab(struct stream_in *in)
         event.u.ses_info = st_ses_info->st_ses;
         ALOGV("%s: AUDIO_EVENT_STOP_LAB pcm %p", __func__, st_ses_info->st_ses.pcm);
         st_dev->st_callback(AUDIO_EVENT_STOP_LAB, &event);
-        in->is_st_session_active = false;
     }
 }
 void audio_extn_sound_trigger_check_and_get_session(struct stream_in *in)
@@ -214,7 +164,6 @@ void audio_extn_sound_trigger_check_and_get_session(struct stream_in *in)
             in->config = st_ses_info->st_ses.config;
             in->channel_mask = audio_channel_in_mask_from_count(in->config.channels);
             in->is_st_session = true;
-            in->is_st_session_active = true;
             ALOGD("%s: capture_handle %d is sound trigger", __func__, in->capture_handle);
             break;
         }
@@ -343,18 +292,6 @@ void audio_extn_sound_trigger_set_parameters(struct audio_device *adev __unused,
         event.u.value = val;
         st_dev->st_callback(AUDIO_EVENT_NUM_ST_SESSIONS, &event);
     }
-
-    ret = str_parms_get_int(params, AUDIO_PARAMETER_DEVICE_CONNECT, &val);
-    if ((ret >= 0) && audio_is_input_device(val)) {
-        event.u.value = val;
-        st_dev->st_callback(AUDIO_EVENT_DEVICE_CONNECT, &event);
-    }
-
-    ret = str_parms_get_int(params, AUDIO_PARAMETER_DEVICE_DISCONNECT, &val);
-    if ((ret >= 0) && audio_is_input_device(val)) {
-        event.u.value = val;
-        st_dev->st_callback(AUDIO_EVENT_DEVICE_DISCONNECT, &event);
-    }
 }
 
 int audio_extn_sound_trigger_init(struct audio_device *adev)
@@ -396,7 +333,6 @@ int audio_extn_sound_trigger_init(struct audio_device *adev)
 
     st_dev->adev = adev;
     list_init(&st_dev->st_ses_list);
-    audio_extn_snd_mon_register_listener(st_dev, stdev_snd_mon_cb);
 
     return 0;
 
@@ -413,7 +349,6 @@ void audio_extn_sound_trigger_deinit(struct audio_device *adev)
 {
     ALOGI("%s: Enter", __func__);
     if (st_dev && (st_dev->adev == adev) && st_dev->lib_handle) {
-        audio_extn_snd_mon_unregister_listener(st_dev);
         dlclose(st_dev->lib_handle);
         free(st_dev);
         st_dev = NULL;

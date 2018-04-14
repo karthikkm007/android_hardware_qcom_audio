@@ -27,7 +27,6 @@ libOmxEvrcEnc-inc       += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 
 LOCAL_MODULE            := libOmxEvrcEnc
 LOCAL_MODULE_TAGS       := optional
-LOCAL_VENDOR_MODULE     := true
 LOCAL_CFLAGS            := $(libOmxEvrcEnc-def)
 LOCAL_C_INCLUDES        := $(libOmxEvrcEnc-inc)
 LOCAL_PRELINK_MODULE    := false
@@ -37,9 +36,10 @@ LOCAL_SRC_FILES         := src/aenc_svr.c
 LOCAL_SRC_FILES         += src/omx_evrc_aenc.cpp
 
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
-LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
+LOCAL_ADDITIONAL_DEPENDENCIES += INSTALLED_KERNEL_HEADERS
 
 include $(BUILD_SHARED_LIBRARY)
+
 
 endif
 

@@ -3972,8 +3972,6 @@ OMX_ERRORTYPE  omx_qcelp13_aenc::empty_this_buffer_proxy
     //The total length of the data to be transcoded
     srcStart = buffer->pBuffer;
     OMX_U8 *data = NULL;
-    ssize_t bytes = 0;
-
     PrintFrameHdr(OMX_COMPONENT_GENERATE_ETB,buffer);
     memset(&meta_in,0,sizeof(meta_in));
     if ( search_input_bufhdr(buffer) == false )
@@ -4003,21 +4001,7 @@ OMX_ERRORTYPE  omx_qcelp13_aenc::empty_this_buffer_proxy
     }
 
     memcpy(&data[sizeof(META_IN)],buffer->pBuffer,buffer->nFilledLen);
-    bytes = write(m_drv_fd, data, buffer->nFilledLen+sizeof(META_IN));
-    if (bytes <= 0) {
-        frame_done_cb((OMX_BUFFERHEADERTYPE *)buffer);
-
-        if (errno == ENETRESET)
-        {
-            ALOGE("In SSR, return error to close the session");
-            m_cb.EventHandler(&m_cmp,
-                  m_app_data,
-                  OMX_EventError,
-                  OMX_ErrorHardware,
-                  0, NULL );
-        }
-        return OMX_ErrorNone;
-    }
+    write(m_drv_fd, data, buffer->nFilledLen+sizeof(META_IN));
 
     pthread_mutex_lock(&m_state_lock);
     get_state(&m_cmp, &state);
@@ -4059,21 +4043,11 @@ OMX_ERRORTYPE  omx_qcelp13_aenc::fill_this_buffer_proxy
                          buffer->nAllocLen,buffer->pBuffer,
                          nReadbytes,nNumOutputBuf);
       if (nReadbytes <= 0) {
-            buffer->nFilledLen = 0;
+                  buffer->nFilledLen = 0;
             buffer->nOffset = 0;
-            buffer->nTimeStamp = nTimestamp;
-            frame_done_cb((OMX_BUFFERHEADERTYPE *)buffer);
-
-            if (errno == ENETRESET)
-            {
-                ALOGE("In SSR, return error to close the session");
-                m_cb.EventHandler(&m_cmp,
-                   m_app_data,
-                   OMX_EventError,
-                   OMX_ErrorHardware,
-                   0, NULL );
-            }
-            return OMX_ErrorNone;
+                buffer->nTimeStamp = nTimestamp;
+             frame_done_cb((OMX_BUFFERHEADERTYPE *)buffer);
+                  return OMX_ErrorNone;
       } else
               DEBUG_PRINT("Read bytes %d\n",nReadbytes);
 

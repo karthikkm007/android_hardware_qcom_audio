@@ -38,7 +38,6 @@ typedef struct bassboost_context_s {
 
     // Offload vars
     struct mixer_ctl *ctl;
-    int hw_acc_fd;
     bool temp_disabled;
     uint32_t device;
     struct bass_boost_params offload_bass;
@@ -90,8 +89,6 @@ int bassboost_get_strength(bassboost_context_t *context);
 int bassboost_set_strength(bassboost_context_t *context, uint32_t strength);
 
 int bassboost_set_device(effect_context_t *context,  uint32_t device);
-
-int bassboost_set_mode(effect_context_t *context,  int32_t hw_acc_fd);
 
 int bassboost_reset(effect_context_t *context);
 

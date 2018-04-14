@@ -27,7 +27,7 @@ LOCAL_C_INCLUDES := $(TOPDIR)frameworks/av/services \
                     $(TOPDIR)frameworks/av/services/audiopolicy \
                     $(TOPDIR)frameworks/av/services/audiopolicy/common/managerdefinitions/include \
                     $(call include-path-for, avextension) \
-                    $(TOPDIR)system/core/base/include
+                    system/core/base/include
 
 
 LOCAL_SHARED_LIBRARIES := \
@@ -41,28 +41,20 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_STATIC_LIBRARIES := \
     libmedia_helper \
 
+ifneq ($(TARGET_SUPPORTS_WEARABLES),true)
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_VOICE_CONCURRENCY)),true)
 LOCAL_CFLAGS += -DVOICE_CONCURRENCY
 endif
+endif
 
+ifneq ($(TARGET_SUPPORTS_WEARABLES),true)
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_RECORD_PLAY_CONCURRENCY)),true)
 LOCAL_CFLAGS += -DRECORD_PLAY_CONCURRENCY
 endif
-
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_PCM_OFFLOAD)),true)
-    LOCAL_CFLAGS += -DPCM_OFFLOAD_ENABLED
-endif
-
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_PCM_OFFLOAD_24)),true)
-       LOCAL_CFLAGS += -DPCM_OFFLOAD_ENABLED_24
 endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EXTN_FORMATS)),true)
-    LOCAL_CFLAGS += -DAUDIO_EXTN_FORMATS_ENABLED
-endif
-
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_AAC_ADTS_OFFLOAD)),true)
-    LOCAL_CFLAGS += -DAAC_ADTS_OFFLOAD_ENABLED
+LOCAL_CFLAGS += -DAUDIO_EXTN_FORMATS_ENABLED
 endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_HDMI_SPK)),true)
@@ -71,6 +63,16 @@ endif
 
 ifneq ($(strip $(AUDIO_FEATURE_ENABLED_PROXY_DEVICE)),false)
 LOCAL_CFLAGS += -DAUDIO_EXTN_AFE_PROXY_ENABLED
+endif
+
+ifneq ($(strip $(AUDIO_FEATURE_ENABLED_COMPRESS_VOIP)),false)
+    LOCAL_CFLAGS += -DCOMPRESS_VOIP_ENABLED
+endif
+
+ifneq ($(strip $(AUDIO_FEATURE_NON_WEARABLE_TARGET)),false)
+    LOCAL_CFLAGS += -DNON_WEARABLE_TARGET
+else
+    LOCAL_CFLAGS += -Wno-error -fpermissive
 endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_FM_POWER_OPT)),true)

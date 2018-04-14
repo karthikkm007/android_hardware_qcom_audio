@@ -17,20 +17,19 @@
 #define LOG_TAG "voice_processing"
 /*#define LOG_NDEBUG 0*/
 #include <dlfcn.h>
-#include <stdlib.h>
 #include <cutils/log.h>
 #include <cutils/list.h>
 #include <hardware/audio_effect.h>
 #include <audio_effects/effect_aec.h>
 #include <audio_effects/effect_agc.h>
 #include <audio_effects/effect_ns.h>
-
+#include <stdlib.h>
 
 //------------------------------------------------------------------------------
 // local definitions
 //------------------------------------------------------------------------------
 
-#define EFFECTS_DESCRIPTOR_LIBRARY_PATH "/vendor/lib/soundfx/libqcomvoiceprocessingdescriptors.so"
+#define EFFECTS_DESCRIPTOR_LIBRARY_PATH "/system/lib/soundfx/libqcomvoiceprocessingdescriptors.so"
 
 // types of pre processing modules
 enum effect_id

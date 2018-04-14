@@ -22,7 +22,6 @@
 #include <string.h>
 #include <time.h>
 #include <sys/prctl.h>
-#include <dlfcn.h>
 
 #include <cutils/list.h>
 #include <cutils/log.h>
@@ -30,15 +29,6 @@
 #include <tinyalsa/asoundlib.h>
 #include <audio_effects/effect_visualizer.h>
 
-#define LIB_ACDB_LOADER "libacdbloader.so"
-#define ACDB_DEV_TYPE_OUT 1
-#define AFE_PROXY_ACDB_ID 45
-
-static void* acdb_handle;
-
-typedef void (*acdb_send_audio_cal_t)(int, int);
-
-acdb_send_audio_cal_t acdb_send_audio_cal;
 
 enum {
     EFFECT_STATE_UNINITIALIZED,
@@ -300,46 +290,23 @@ bool effects_enabled() {
     return false;
 }
 
-int set_control(const char* name, struct mixer *mixer, int value) {
+int configure_proxy_capture(struct mixer *mixer, int value) {
+    const char *proxy_ctl_name = "AFE_PCM_RX Audio Mixer MultiMedia4";
     struct mixer_ctl *ctl;
 
-    ctl = mixer_get_ctl_by_name(mixer, name);
+    ctl = mixer_get_ctl_by_name(mixer, proxy_ctl_name);
     if (ctl == NULL) {
-        ALOGW("%s: could not get %s ctl", __func__, name);
+        ALOGW("%s: could not get %s ctl", __func__, proxy_ctl_name);
         return -EINVAL;
     }
-    if (mixer_ctl_set_value(ctl, 0, value) != 0) {
-        ALOGW("%s: error setting value %d on %s ", __func__, value, name);
-        return -EINVAL;
-    }
-
-    return 0;
-}
-
-int configure_proxy_capture(struct mixer *mixer, int value) {
-    int retval = 0;
-
-    if (value && acdb_send_audio_cal)
-        acdb_send_audio_cal(AFE_PROXY_ACDB_ID, ACDB_DEV_TYPE_OUT);
-
-    retval = set_control("AFE_PCM_RX Audio Mixer MultiMedia4", mixer, value);
-
-    if (retval != 0)
-        return retval;
-
-    // Extending visualizer to capture for compress2 path as well.
-    // for extending it to multiple offload either this needs to be extended
-    // or need to find better solution to enable only active offload sessions
-
-    retval = set_control("AFE_PCM_RX Audio Mixer MultiMedia7", mixer, value);
-    if (retval != 0)
-        return retval;
+    if (mixer_ctl_set_value(ctl, 0, value) != 0)
+        ALOGW("%s: error setting value %d on %s ", __func__, value, proxy_ctl_name);
 
     return 0;
 }
 
 
-void *capture_thread_loop(void *arg __unused)
+void *capture_thread_loop(void *arg)
 {
     int16_t data[AUDIO_CAPTURE_PERIOD_SIZE * AUDIO_CAPTURE_CHANNEL_COUNT * sizeof(int16_t)];
     audio_buffer_t buf;
@@ -447,7 +414,7 @@ void *capture_thread_loop(void *arg __unused)
 
 __attribute__ ((visibility ("default")))
 int visualizer_hal_start_output(audio_io_handle_t output, int pcm_id) {
-    int ret = 0;
+    int ret;
     struct listnode *node;
 
     ALOGV("%s output %d pcm_id %d", __func__, output, pcm_id);
@@ -498,7 +465,7 @@ exit:
 
 __attribute__ ((visibility ("default")))
 int visualizer_hal_stop_output(audio_io_handle_t output, int pcm_id) {
-    int ret = 0;
+    int ret;
     struct listnode *node;
     struct listnode *fx_node;
     output_context_t *out_ctxt;
@@ -647,19 +614,6 @@ int visualizer_init(effect_context_t *context)
 
     set_config(context, &context->config);
 
-    if (acdb_handle == NULL) {
-        acdb_handle = dlopen(LIB_ACDB_LOADER, RTLD_NOW);
-        if (acdb_handle == NULL) {
-            ALOGE("%s: DLOPEN failed for %s", __func__, LIB_ACDB_LOADER);
-        } else {
-            acdb_send_audio_cal = (acdb_send_audio_cal_t)dlsym(acdb_handle,
-                                                    "acdb_loader_send_audio_cal");
-            if (!acdb_send_audio_cal)
-                ALOGE("%s: Could not find the symbol acdb_send_audio_cal from %s",
-                      __func__, LIB_ACDB_LOADER);
-            }
-    }
-
     return 0;
 }
 
@@ -698,7 +652,7 @@ int visualizer_get_parameter(effect_context_t *context, effect_param_t *p, uint3
     return 0;
 }
 
-int visualizer_set_parameter(effect_context_t *context, effect_param_t *p, uint32_t size __unused)
+int visualizer_set_parameter(effect_context_t *context, effect_param_t *p, uint32_t size)
 {
     visualizer_context_t *visu_ctxt = (visualizer_context_t *)context;
 
@@ -831,8 +785,8 @@ int visualizer_process(effect_context_t *context,
     return 0;
 }
 
-int visualizer_command(effect_context_t * context, uint32_t cmdCode, uint32_t cmdSize __unused,
-        void *pCmdData __unused, uint32_t *replySize, void *pReplyData)
+int visualizer_command(effect_context_t * context, uint32_t cmdCode, uint32_t cmdSize,
+        void *pCmdData, uint32_t *replySize, void *pReplyData)
 {
     visualizer_context_t * visu_ctxt = (visualizer_context_t *)context;
 
@@ -894,13 +848,9 @@ int visualizer_command(effect_context_t * context, uint32_t cmdCode, uint32_t cm
     case VISUALIZER_CMD_MEASURE: {
         if (pReplyData == NULL || replySize == NULL ||
                 *replySize < (sizeof(int32_t) * MEASUREMENT_COUNT)) {
-            if (replySize == NULL) {
-                ALOGV("%s VISUALIZER_CMD_MEASURE error replySize NULL", __func__);
-            } else {
-                ALOGV("%s VISUALIZER_CMD_MEASURE error *replySize %u <"
-                        "(sizeof(int32_t) * MEASUREMENT_COUNT) %zu",
-                        __func__, *replySize, sizeof(int32_t) * MEASUREMENT_COUNT);
-            }
+            ALOGV("%s VISUALIZER_CMD_MEASURE error *replySize %d <"
+                    "(sizeof(int32_t) * MEASUREMENT_COUNT) %d",
+                    __func__, *replySize, sizeof(int32_t) * MEASUREMENT_COUNT);
             android_errorWriteLog(0x534e4554, "30229821");
             return -EINVAL;
         }
@@ -966,7 +916,7 @@ int visualizer_command(effect_context_t * context, uint32_t cmdCode, uint32_t cm
  */
 
 int effect_lib_create(const effect_uuid_t *uuid,
-                         int32_t sessionId __unused,
+                         int32_t sessionId,
                          int32_t ioId,
                          effect_handle_t *pHandle) {
     int ret;
@@ -1087,8 +1037,8 @@ int effect_lib_get_descriptor(const effect_uuid_t *uuid,
 
  /* Stub function for effect interface: never called for offloaded effects */
 int effect_process(effect_handle_t self,
-                       audio_buffer_t *inBuffer __unused,
-                       audio_buffer_t *outBuffer __unused)
+                       audio_buffer_t *inBuffer,
+                       audio_buffer_t *outBuffer)
 {
     effect_context_t * context = (effect_context_t *)self;
     int status = 0;

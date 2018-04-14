@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright (C) 2013 The Android Open Source Project
@@ -18,7 +18,7 @@
  */
 
 #define LOG_TAG "offload_effect_equalizer"
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 
 #include <cutils/list.h>
 #include <cutils/log.h>
@@ -34,7 +34,7 @@ const effect_descriptor_t equalizer_descriptor = {
         {0x0bed4300, 0xddd6, 0x11db, 0x8f34, {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}}, // type
         {0xa0dac280, 0x401c, 0x11e3, 0x9379, {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}}, // uuid
         EFFECT_CONTROL_API_VERSION,
-        (EFFECT_FLAG_TYPE_INSERT | EFFECT_FLAG_HW_ACC_TUNNEL | EFFECT_FLAG_VOLUME_CTRL),
+        (EFFECT_FLAG_TYPE_INSERT | EFFECT_FLAG_HW_ACC_TUNNEL),
         0, /* TODO */
         1,
         "MSM offload equalizer",
@@ -110,13 +110,9 @@ int equalizer_set_band_level(equalizer_context_t *context, int32_t band,
                                equalizer_band_presets_freq,
                                context->band_levels);
     if (context->ctl)
-        offload_eq_send_params(context->ctl, &context->offload_eq,
+        offload_eq_send_params(context->ctl, context->offload_eq,
                                OFFLOAD_SEND_EQ_ENABLE_FLAG |
                                OFFLOAD_SEND_EQ_BANDS_LEVEL);
-    if (context->hw_acc_fd > 0)
-        hw_acc_eq_send_params(context->hw_acc_fd, &context->offload_eq,
-                              OFFLOAD_SEND_EQ_ENABLE_FLAG |
-                              OFFLOAD_SEND_EQ_BANDS_LEVEL);
     return 0;
 }
 
@@ -171,13 +167,9 @@ int equalizer_set_preset(equalizer_context_t *context, int preset)
                                equalizer_band_presets_freq,
                                context->band_levels);
     if(context->ctl)
-        offload_eq_send_params(context->ctl, &context->offload_eq,
+        offload_eq_send_params(context->ctl, context->offload_eq,
                                OFFLOAD_SEND_EQ_ENABLE_FLAG |
                                OFFLOAD_SEND_EQ_PRESET);
-    if(context->hw_acc_fd > 0)
-        hw_acc_eq_send_params(context->hw_acc_fd, &context->offload_eq,
-                              OFFLOAD_SEND_EQ_ENABLE_FLAG |
-                              OFFLOAD_SEND_EQ_PRESET);
     return 0;
 }
 
@@ -196,7 +188,7 @@ const char * equalizer_get_preset_name(equalizer_context_t *context,
 int equalizer_get_num_presets(equalizer_context_t *context)
 {
     ALOGV("%s: ctxt %p, presets_num: %d", __func__, context,
-           (int)(sizeof(equalizer_preset_names)/sizeof(char *)));
+           sizeof(equalizer_preset_names)/sizeof(char *));
     return sizeof(equalizer_preset_names)/sizeof(char *);
 }
 
@@ -337,13 +329,6 @@ int equalizer_get_parameter(effect_context_t *context, effect_param_t *p,
                 }
                 break;
         }
-
-        if (p->vsize < 1) {
-            p->status = -EINVAL;
-            android_errorWriteLog(0x534e4554, "37536407");
-            break;
-        }
-
         name = (char *)value;
         strlcpy(name, equalizer_get_preset_name(eq_ctxt, param2), p->vsize - 1);
         name[p->vsize - 1] = 0;
@@ -493,7 +478,6 @@ int equalizer_init(effect_context_t *context)
 
     set_config(context, &context->config);
 
-    eq_ctxt->hw_acc_fd = -1;
     memset(&(eq_ctxt->offload_eq), 0, sizeof(struct eq_params));
     offload_eq_set_preset(&(eq_ctxt->offload_eq), INVALID_PRESET);
 
@@ -509,13 +493,9 @@ int equalizer_enable(effect_context_t *context)
     if (!offload_eq_get_enable_flag(&(eq_ctxt->offload_eq))) {
         offload_eq_set_enable_flag(&(eq_ctxt->offload_eq), true);
         if (eq_ctxt->ctl)
-            offload_eq_send_params(eq_ctxt->ctl, &eq_ctxt->offload_eq,
+            offload_eq_send_params(eq_ctxt->ctl, eq_ctxt->offload_eq,
                                    OFFLOAD_SEND_EQ_ENABLE_FLAG |
                                    OFFLOAD_SEND_EQ_BANDS_LEVEL);
-        if (eq_ctxt->hw_acc_fd > 0)
-            hw_acc_eq_send_params(eq_ctxt->hw_acc_fd, &eq_ctxt->offload_eq,
-                                  OFFLOAD_SEND_EQ_ENABLE_FLAG |
-                                  OFFLOAD_SEND_EQ_BANDS_LEVEL);
     }
     return 0;
 }
@@ -528,11 +508,8 @@ int equalizer_disable(effect_context_t *context)
     if (offload_eq_get_enable_flag(&(eq_ctxt->offload_eq))) {
         offload_eq_set_enable_flag(&(eq_ctxt->offload_eq), false);
         if (eq_ctxt->ctl)
-            offload_eq_send_params(eq_ctxt->ctl, &eq_ctxt->offload_eq,
+            offload_eq_send_params(eq_ctxt->ctl, eq_ctxt->offload_eq,
                                    OFFLOAD_SEND_EQ_ENABLE_FLAG);
-        if (eq_ctxt->hw_acc_fd > 0)
-            hw_acc_eq_send_params(eq_ctxt->hw_acc_fd, &eq_ctxt->offload_eq,
-                                  OFFLOAD_SEND_EQ_ENABLE_FLAG);
     }
     return 0;
 }
@@ -543,16 +520,11 @@ int equalizer_start(effect_context_t *context, output_context_t *output)
 
     ALOGV("%s: ctxt %p, ctl %p", __func__, eq_ctxt, output->ctl);
     eq_ctxt->ctl = output->ctl;
-    if (offload_eq_get_enable_flag(&(eq_ctxt->offload_eq))) {
+    if (offload_eq_get_enable_flag(&(eq_ctxt->offload_eq)))
         if (eq_ctxt->ctl)
-            offload_eq_send_params(eq_ctxt->ctl, &eq_ctxt->offload_eq,
+            offload_eq_send_params(eq_ctxt->ctl, eq_ctxt->offload_eq,
                                    OFFLOAD_SEND_EQ_ENABLE_FLAG |
                                    OFFLOAD_SEND_EQ_BANDS_LEVEL);
-        if (eq_ctxt->hw_acc_fd > 0)
-            hw_acc_eq_send_params(eq_ctxt->hw_acc_fd, &eq_ctxt->offload_eq,
-                                  OFFLOAD_SEND_EQ_ENABLE_FLAG |
-                                  OFFLOAD_SEND_EQ_BANDS_LEVEL);
-    }
     return 0;
 }
 
@@ -561,26 +533,6 @@ int equalizer_stop(effect_context_t *context, output_context_t *output __unused)
     equalizer_context_t *eq_ctxt = (equalizer_context_t *)context;
 
     ALOGV("%s: ctxt %p", __func__, eq_ctxt);
-    if (offload_eq_get_enable_flag(&(eq_ctxt->offload_eq)) &&
-        eq_ctxt->ctl) {
-        struct eq_params eq;
-        eq.enable_flag = false;
-        offload_eq_send_params(eq_ctxt->ctl, &eq, OFFLOAD_SEND_EQ_ENABLE_FLAG);
-    }
     eq_ctxt->ctl = NULL;
-    return 0;
-}
-
-int equalizer_set_mode(effect_context_t *context, int32_t hw_acc_fd)
-{
-    equalizer_context_t *eq_ctxt = (equalizer_context_t *)context;
-
-    ALOGV("%s: ctxt %p", __func__, eq_ctxt);
-    eq_ctxt->hw_acc_fd = hw_acc_fd;
-    if ((eq_ctxt->hw_acc_fd > 0) &&
-        (offload_eq_get_enable_flag(&(eq_ctxt->offload_eq))))
-        hw_acc_eq_send_params(eq_ctxt->hw_acc_fd, &eq_ctxt->offload_eq,
-                              OFFLOAD_SEND_EQ_ENABLE_FLAG |
-                              OFFLOAD_SEND_EQ_BANDS_LEVEL);
     return 0;
 }

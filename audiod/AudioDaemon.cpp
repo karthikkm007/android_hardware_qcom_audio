@@ -60,7 +60,7 @@ namespace android {
         run("AudioDaemon", PRIORITY_URGENT_AUDIO);
     }
 
-    void AudioDaemon::binderDied(const wp<IBinder>& who __unused)
+    void AudioDaemon::binderDied(const wp<IBinder>& who)
     {
         requestExit();
     }
@@ -380,13 +380,13 @@ namespace android {
                                cur_state = snd_card_online;
                            }
 
+                           if (cur_state == snd_card_online && !bootup_complete) {
+                               bootup_complete = 1;
+                           }
+
                            if (bootup_complete) {
                                ALOGV("bootup_complete, so NofityAudioSystem");
                                notifyAudioSystem(mSndCardFd[i].first, cur_state, SND_CARD_STATE);
-                           }
-
-                           if (cur_state == snd_card_online && !bootup_complete) {
-                               bootup_complete = 1;
                            }
                        }
                    }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright (C) 2013 The Android Open Source Project
@@ -40,15 +40,13 @@ typedef struct reverb_settings_s {
     uint32_t    reverbDelay;
     int16_t     diffusion;
     int16_t     density;
-}  __attribute__((packed)) reverb_settings_t;
+} reverb_settings_t;
 
 typedef struct reverb_context_s {
     effect_context_t common;
 
     // Offload vars
     struct mixer_ctl *ctl;
-    int hw_acc_fd;
-    bool enabled_by_client;
     bool auxiliary;
     bool preset;
     uint16_t cur_preset;
@@ -63,8 +61,6 @@ void reverb_auxiliary_init(reverb_context_t *context);
 
 void reverb_preset_init(reverb_context_t *context);
 
-void reverb_insert_init(reverb_context_t *context);
-
 int reverb_get_parameter(effect_context_t *context, effect_param_t *p,
                             uint32_t *size);
 
@@ -72,8 +68,6 @@ int reverb_set_parameter(effect_context_t *context, effect_param_t *p,
                             uint32_t size);
 
 int reverb_set_device(effect_context_t *context,  uint32_t device);
-
-int reverb_set_mode(effect_context_t *context,  int32_t hw_acc_fd);
 
 int reverb_reset(effect_context_t *context);
 

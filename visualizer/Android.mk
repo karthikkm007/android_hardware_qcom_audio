@@ -24,12 +24,10 @@ LOCAL_CFLAGS+= -O2 -fvisibility=hidden
 LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	liblog \
-	libdl \
 	libtinyalsa
 
 LOCAL_MODULE_RELATIVE_PATH := soundfx
 LOCAL_MODULE:= libqcomvisualizer
-LOCAL_VENDOR_MODULE := true
 
 LOCAL_C_INCLUDES := \
 	external/tinyalsa/include \
